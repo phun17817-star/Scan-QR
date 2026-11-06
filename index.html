@@ -1,0 +1,184 @@
+
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<title>ROBOT CAR QR SCANNER</title>
+
+<script src="https://unpkg.com/html5-qrcode"></script>
+
+<style>
+* {
+    box-sizing: border-box;
+}
+
+body {
+    background: #101827;
+    color: white;
+    font-family: Arial, sans-serif;
+    text-align: center;
+    padding: 20px;
+}
+
+.container {
+    max-width: 420px;
+    margin: auto;
+    background: #1e293b;
+    padding: 20px;
+    border-radius: 18px;
+}
+
+h2 {
+    color: #38bdf8;
+}
+
+#reader {
+    width: 100%;
+    margin: 20px auto;
+    overflow: hidden;
+    border-radius: 12px;
+}
+
+button {
+    width: 100%;
+    padding: 15px;
+    border: none;
+    border-radius: 10px;
+    margin-top: 12px;
+    font-size: 16px;
+    font-weight: bold;
+    color: white;
+    background: #2563eb;
+}
+
+.stop {
+    background: #dc2626;
+}
+
+#status {
+    margin-top: 20px;
+    padding: 15px;
+    background: #334155;
+    border-radius: 10px;
+    color: #4ade80;
+    overflow-wrap: anywhere;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<h2>ROBOT CAR</h2>
+<h3>QR MODE SCANNER</h3>
+
+<p>Đưa mã QR vào camera để chọn chế độ</p>
+
+<div id="reader"></div>
+
+<button onclick="startScanner()">
+START CAMERA
+</button>
+
+<button class="stop" onclick="stopScanner()">
+STOP CAMERA
+</button>
+
+<div id="status">
+WAITING FOR QR CODE...
+</div>
+
+</div>
+
+<script>
+
+const ESP32_IP = "192.168.4.1";
+
+let scanner = null;
+let isScanning = false;
+let processing = false;
+
+async function startScanner() {
+
+    if (isScanning) return;
+
+    try {
+
+        scanner = new Html5Qrcode("reader");
+
+        await scanner.start(
+            { facingMode: "environment" },
+            {
+                fps: 10,
+                qrbox: {
+                    width: 230,
+                    height: 230
+                }
+            },
+            onScanSuccess
+        );
+
+        isScanning = true;
+        processing = false;
+
+        document.getElementById("status").innerText =
+            "CAMERA READY - SCANNING...";
+
+    } catch(error) {
+
+        document.getElementById("status").innerText =
+            "CAMERA ERROR: " + error;
+
+    }
+}
+
+async function stopScanner() {
+
+    if (scanner && isScanning) {
+
+        try {
+            await scanner.stop();
+        } catch(error) {
+            console.log(error);
+        }
+
+        isScanning = false;
+    }
+}
+
+async function onScanSuccess(decodedText) {
+
+    if (processing) return;
+
+    let value = decodedText.trim();
+
+    if (!["1", "2", "3"].includes(value)) {
+
+        document.getElementById("status").innerText =
+            "INVALID QR CODE: " + value;
+
+        return;
+    }
+
+    processing = true;
+
+    document.getElementById("status").innerText =
+        "QR DETECTED: MODE " + value;
+
+    await stopScanner();
+
+    document.getElementById("status").innerText =
+        "SENDING MODE " + value + " TO ESP32...";
+
+    // Điều hướng đến ESP32 để gửi lệnh UART xuống STM32
+    window.location.href =
+        "http://" + ESP32_IP + "/mode?value=" + value;
+}
+
+</script>
+
+</body>
+</html>
